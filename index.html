@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#173c34">
+  <title>Кладовка Кулибина — прокат инструментов</title>
+  <meta name="description" content="Рабочее место пункта проката инструментов">
+  <link rel="icon" href="favicon.svg"><link rel="stylesheet" href="styles.css">
+  <script src="config.js"></script>
+</head>
+<body>
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+<section id="auth" class="auth-shell">
+  <div class="auth-art"><div class="brand"><i data-symbol="brand"></i><b>Кладовка<br>Кулибина</b></div></div>
+  <div class="auth-card"><span class="eyebrow">Пункт проката</span><h1>Рабочий кабинет</h1>
+    <form id="loginForm" class="stack" hidden>
+      <label class="field"><span id="loginIdLabel">Логин или почта</span><input id="loginEmail" type="text" autocomplete="username" required></label>
+      <label class="field">Пароль<input id="loginPassword" type="password" autocomplete="current-password" required></label>
+      <button class="btn primary">Войти</button>
+    </form>
+    <button id="signupSwitch" class="text-btn" hidden>Запросить доступ сотрудника</button>
+    <button id="demoBtn" class="btn">Открыть локальный кабинет</button>
+    <p id="authStatus" role="status">Загрузка кабинета…</p>
+  </div>
+</section>
+<div id="app" class="app hidden">
+  <a class="skip" href="#pageTitle">К содержимому</a>
+  <button id="menuShade" aria-label="Закрыть меню" hidden></button>
+  <aside id="sidebar" class="sidebar" aria-label="Меню">
+    <div class="brand"><i data-symbol="brand"></i><div><b>Кладовка</b><b>Кулибина<span>.</span></b></div></div>
+    <nav id="nav" aria-label="Разделы кабинета">
+      <div class="nav-label">Рабочее место</div>
+      <button class="nav-item" data-view="dashboard"><i data-symbol="dashboard"></i>Обзор</button>
+      <button class="nav-item" data-view="rentals"><i data-symbol="rentals"></i>Договоры аренды</button>
+      <button class="nav-item" data-view="tools"><i data-symbol="tools"></i>Каталог</button>
+      <button class="nav-item" data-view="clients"><i data-symbol="clients"></i>Клиенты</button>
+      <div class="nav-label manager-only">Управление</div>
+      <button class="nav-item owner-only" data-view="employer"><i data-symbol="team"></i>Кабинет владельца</button>
+      <button class="nav-item manager-only" data-view="finance"><i data-symbol="finance"></i>Финансы</button>
+      <button class="nav-item manager-only" data-view="reports"><i data-symbol="reports"></i>Отчёты</button>
+      <button class="nav-item manager-only" data-view="employees"><i data-symbol="team"></i>Сотрудники</button>
+      <button class="nav-item owner-only" data-view="settings"><i data-symbol="settings"></i>Настройки</button>
+    </nav>
+    <div class="sidebar-foot"><div class="account"><span class="avatar" id="initials">ЛК</span><div><b id="accountName">Локальный кабинет</b><small id="accountRole">Владелец</small></div></div><button id="logoutBtn" class="icon-btn" title="Выйти" aria-label="Выйти"><i data-symbol="exit"></i></button></div>
+  </aside>
+  <main class="main">
+    <header class="topbar"><div class="crumb"><button id="menuBtn" class="icon-btn" aria-controls="sidebar" aria-expanded="false" aria-label="Меню"><i data-symbol="menu"></i></button><span class="mobile-brand">Кладовка Кулибина</span><span>Рабочее место</span><span class="sep">/</span><b id="pageKicker">Обзор</b></div>
+    <div class="top-actions"><button class="search-launch" id="globalSearch" aria-label="Поиск по базе"><i data-symbol="search"></i><span>Поиск по базе</span><kbd>Ctrl K</kbd></button><button class="icon-btn" id="themeBtn" aria-label="Сменить тему" title="Сменить тему"></button></div></header>
+    <div class="content">
+      <div class="page-head"><div><div class="date-line"><i data-symbol="calendar"></i><span id="todayDate"></span></div><h1 id="pageTitle" tabindex="-1">Обзор проката</h1></div>
+      <button class="btn primary" id="newRentalBtn"><i data-symbol="plus"></i>Новый договор</button></div>
+      <section id="dashboardView" class="view">
+        <section class="fleet"><div class="fleet-copy"><div class="fleet-label"><span></span> Каталог инструментов</div><h2>Готовы к выдаче</h2><p><strong id="fleetReady">0</strong> <span id="fleetTotal"></span></p><button class="fleet-link" data-free-catalog>Открыть каталог <i data-symbol="arrow"></i></button></div></section>
+        <div class="kpis">
+          <button class="kpi" data-rental-filter="active"><span><i data-symbol="rentals"></i>Активные договоры</span><b id="kpiActive">0</b></button>
+          <button class="kpi amber" data-rental-filter="today"><span><i data-symbol="calendar"></i>Возвраты сегодня</span><b id="kpiToday">0</b></button>
+          <button class="kpi coral" data-rental-filter="overdue"><span><i data-symbol="clock"></i>Просрочено</span><b id="kpiOverdue">0</b></button>
+          <button class="kpi manager-only" data-open-view="finance"><span><i data-symbol="finance"></i>Выручка сегодня</span><b id="kpiRevenue">0 ₽</b></button>
+        </div>
+        <div class="grid-2"><section class="panel"><div class="panel-head"><h3>Ближайшие возвраты</h3><button class="text-btn" data-open-view="rentals">Договоры <i data-symbol="arrow"></i></button></div><div id="attentionList"></div></section>
+          <section class="panel"><div class="panel-head"><h3>Категории каталога</h3><button class="text-btn" data-open-view="tools">Все <i data-symbol="arrow"></i></button></div><div id="categories"></div></section></div>
+        <section class="panel"><div class="panel-head"><h3>Последние договоры</h3><button class="text-btn" data-open-view="rentals">Все договоры <i data-symbol="arrow"></i></button></div><div id="recentRentals" class="table-scroll"></div></section>
+        <section class="panel manager-only"><div class="panel-head"><h3>Выручка за неделю</h3><span id="chartPeriod" class="muted"></span></div><div id="revenueChart" class="mini-chart"></div></section>
+      </section>
+      <section id="rentalsView" class="view hidden"></section><section id="toolsView" class="view hidden"></section><section id="clientsView" class="view hidden"></section><section id="financeView" class="view hidden"></section><section id="reportsView" class="view hidden"></section><section id="employeesView" class="view hidden"></section><section id="employerView" class="view hidden"></section><section id="settingsView" class="view hidden"></section>
+      <footer><span>Кладовка Кулибина</span><span class="sync"><i id="syncDot"></i><span id="syncText"></span></span></footer>
+    </div>
+  </main>
+</div>
+<dialog id="modal" class="modal" aria-labelledby="dialogTitle"><div class="modal-card"><button id="modalClose" class="icon-btn modal-close" aria-label="Закрыть"><i data-symbol="close"></i></button><div id="modalContent"></div></div></dialog>
+<noscript>Для работы кабинета включите JavaScript.</noscript>
+<script type="module" src="app.js"></script>
+</body></html>
+

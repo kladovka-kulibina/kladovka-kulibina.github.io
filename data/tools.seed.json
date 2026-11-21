@@ -1,0 +1,1 @@
+[{"legacy_id": "demo-1", "name": "Демонстрационная дрель", "category": "Дрели", "inventory_no": "Д-01", "available": true, "rental_price": 450, "deposit": 1000}, {"legacy_id": "demo-2", "name": "Демонстрационная шлифмашина", "category": "Шлифмашины", "inventory_no": "Д-02", "available": true, "rental_price": 600, "deposit": 1500}]
