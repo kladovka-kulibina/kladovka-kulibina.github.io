@@ -24,3 +24,26 @@ footer{display:flex;justify-content:space-between;align-items:center;gap:10px;fo
 
 .owner-summary .finance-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.owner-summary .kpi{background:var(--soft);border:0}.owner-period{display:flex;flex-wrap:wrap;gap:4px}.owner-period button{padding:7px 10px;border:1px solid var(--line);border-radius:7px;font-size:13px}.owner-period button[aria-pressed=true]{background:var(--green);border-color:var(--green);color:var(--paper)}.owner-link,.owner-roster li,.owner-person{display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--line);padding:10px 0}.owner-link{justify-content:space-between;width:100%;text-align:left}.owner-link:hover{color:var(--green)}.owner-roster{list-style:none;padding:0;margin:8px 0;max-height:300px;overflow:auto}.owner-roster li{justify-content:space-between}.owner-person{display:grid;grid-template-columns:minmax(0,1fr) 110px 140px 110px}.owner-person b,.owner-person small{overflow-wrap:anywhere}#ownerAccounts .toolbar{margin:10px 0}#ownerAccounts .search{max-width:480px}.owner-roster li:last-child,.owner-link:last-child,.owner-person:last-child{border-bottom:0}
 @media(max-width:700px){.owner-summary .panel-head{align-items:start;flex-direction:column}.owner-person{grid-template-columns:minmax(0,1fr) auto}.owner-summary .finance-grid{grid-template-columns:repeat(auto-fit,minmax(132px,1fr))}.owner-summary .kpi{padding:10px}}
+
+.workbook-panel{min-width:0}
+.wb-controls,.wb-actions,.wb-pages,.wb-pages>div{display:flex;align-items:center;gap:.65rem;flex-wrap:wrap}
+.wb-controls{align-items:flex-end;gap:1rem;margin:1rem 0}
+.wb-controls .field{flex:1 1 14rem;min-width:0}
+.wb-times{margin:.3rem 0 1rem}
+.wb-pages{justify-content:space-between;margin:.8rem 0;font-variant-numeric:tabular-nums}
+.wb-pages .btn{padding:.3rem .7rem;min-width:2.3rem;min-height:2.2rem}
+.wb-pages span{font-size:.86rem}
+.wb-scroll{width:100%;max-height:65vh;overflow:auto;border:1px solid var(--line,#d8e2dc);border-radius:10px}
+.wb-table{width:max-content;min-width:100%;border-spacing:0;border-collapse:separate}
+.wb-table th,.wb-table td{min-width:6rem;max-width:24rem;padding:.55rem .8rem;vertical-align:top;white-space:pre-wrap;overflow-wrap:anywhere;border-right:1px solid var(--line,#d8e2dc);border-bottom:1px solid var(--line,#d8e2dc)}
+.wb-table th{background:var(--soft,#f1f5f1);text-align:center}
+.wb-table thead th{position:sticky;top:0;z-index:2}
+.wb-table tr>th:first-child{min-width:3.5rem;position:sticky;left:0;z-index:1}
+.wb-table thead tr>th:first-child{z-index:3}
+.wb-table a,.wb-table summary,.wb-review summary{color:var(--green,#23735a)}
+.wb-table details,.wb-review{font-size:.88em}
+.wb-review summary,.wb-table summary{cursor:pointer}
+.wb-review{border-left:3px solid #bb8b48;padding:.45rem .8rem}
+.wb-selected td{background:color-mix(in srgb,#f6bb57 20%,transparent)}
+.wb-related{margin:0 0 1rem}
+@media(max-width:650px){.workbook-panel .panel-head{align-items:flex-start;flex-direction:column}.wb-controls{gap:.5rem}.wb-actions{margin-top:.4rem}.wb-table th,.wb-table td{max-width:15rem}.wb-scroll{max-height:60vh}}

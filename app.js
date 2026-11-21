@@ -1,3 +1,4 @@
+import { renderWorkbook } from "./workbook.js";
 import { renderEmployer } from "./employer.js";
 import { icon, mountIcons } from "./icons.js";
 import { normalizeBackup, cloudBackup } from "./backup.js";
@@ -16,7 +17,7 @@ const fmtDate = v => v ? new Date(`${String(v).slice(0,10)}T12:00:00`).toLocaleD
 const uid = () => crypto.randomUUID();
 const collections = ["clients","tools","rentals","expenses","employees","timesheet"];
 const roleNames={owner:"Владелец",manager:"Менеджер",employee:"Сотрудник"};
-const titles={employer:"Кабинет владельца",dashboard:"Обзор проката",rentals:"Договоры аренды",tools:"Каталог инструментов",clients:"Клиенты",finance:"Финансы",reports:"Отчёты",employees:"Сотрудники",settings:"Настройки"};
+const titles={workbook:"Таблица проката",employer:"Кабинет владельца",dashboard:"Обзор проката",rentals:"Договоры аренды",tools:"Каталог инструментов",clients:"Клиенты",finance:"Финансы",reports:"Отчёты",employees:"Сотрудники",settings:"Настройки"};
 const state={user:null,profile:null,role:"employee",mode:"local",view:"dashboard",filters:{},theme:localStorage.getItem("kk-web-theme")||"light"};
 const cloud=()=>state.mode==="cloud";
 const manager=()=>["owner","manager"].includes(state.role);
@@ -92,7 +93,7 @@ async function authInit(){
   if(data.session)await enter(data.session.user,"cloud");else showAuth();
   supabase.auth.onAuthStateChange((event)=>{if(event==="SIGNED_OUT"&&cloud())resetAccount()});
 }
-function resetAccount(){$("#employerView").replaceChildren();closeModal();setMenu(false);state.user=null;state.profile=null;state.role="employee";state.view="dashboard";state.filters={};collections.forEach(k=>{state[k]=[]});sessionStorage.setItem("kk-web-logged-out","1");history.replaceState(null,"",location.pathname+location.search);showAuth(configured?"":"Данные сохраняются в этом браузере.")}
+function resetAccount(){$("#workbookView").replaceChildren();$("#employerView").replaceChildren();closeModal();setMenu(false);state.user=null;state.profile=null;state.role="employee";state.view="dashboard";state.filters={};collections.forEach(k=>{state[k]=[]});sessionStorage.setItem("kk-web-logged-out","1");history.replaceState(null,"",location.pathname+location.search);showAuth(configured?"":"Данные сохраняются в этом браузере.")}
 $("#loginForm").onsubmit=async e=>{
   e.preventDefault();const b=e.submitter;b.disabled=true;
   if(signingUp){
@@ -191,7 +192,7 @@ function freeTools(){return state.tools.filter(t=>t.status!=="repair"&&t.status!
 
 
 function setView(request,push=false){
-  const permitted=Object.hasOwn(titles,request)&&!(["settings","employer"].includes(request)&&state.role!=="owner")&&!(["employees","finance","reports"].includes(request)&&!manager());
+  const permitted=Object.hasOwn(titles,request)&&!(["settings","employer","workbook"].includes(request)&&state.role!=="owner")&&!(["employees","finance","reports"].includes(request)&&!manager());
   const v=permitted?request:"dashboard";state.view=v;
   if(location.hash.slice(1)!==v)history[push?"pushState":"replaceState"](null,"","#"+v);
   $("#pageKicker").textContent=v==="dashboard"?"Обзор":titles[v];$("#pageTitle").textContent=titles[v];document.title=`${titles[v]} · Кладовка Кулибина`;
@@ -204,8 +205,15 @@ function setView(request,push=false){
 window.addEventListener("hashchange",()=>{if(state.user)setView(location.hash.slice(1))});
 function renderAll(){applyRoleUI();setView(state.view)}
 function renderView(v){
-  const run={employer:()=>renderEmployer({root:$("#employerView"),state,online:cloud(),db:supabase,esc,money,today:isoToday,addDays,revenueFor,expenseFor,openModal,closeModal,toast,reloadData}),dashboard:renderDashboard,rentals:renderRentals,tools:renderTools,clients:renderClients,finance:renderFinance,reports:renderReports,employees:renderEmployees,settings:renderSettings};
+  const run={workbook:()=>renderWorkbook({root:$("#workbookView"),db:supabase,state,online:cloud(),esc,toast}),employer:()=>renderEmployer({root:$("#employerView"),state,online:cloud(),db:supabase,esc,money,today:isoToday,addDays,revenueFor,expenseFor,openModal,closeModal,toast,reloadData}),dashboard:renderDashboard,rentals:renderRentals,tools:renderTools,clients:renderClients,finance:renderFinance,reports:renderReports,employees:renderEmployees,settings:renderSettings};
   run[v]();
+  const relatedSheet={rentals:"ежедневный отчёт",tools:"Прайс",finance:"выручка",employees:"Табель",clients:"ЧС"};
+  const workbookLink=$("#relatedWorkbook");
+  workbookLink.hidden=state.role!=="owner" || !cloud() || !relatedSheet[v];
+  if(!workbookLink.hidden){
+    workbookLink.textContent="Лист «"+relatedSheet[v]+"»";
+    workbookLink.onclick=()=>{state.filters.workbookTab=relatedSheet[v];setView("workbook",true)};
+  }
   for(const id of ["rentalSearch","rentalStatus","toolFilter","toolCat","toolStatus","clientFilter"]){
     const el=document.getElementById(id);
     if(el&&el.closest(".view").id===v+"View"){el.value=state.filters[id]||"";el.setAttribute("aria-label",el.getAttribute("placeholder")||el.options?.[0]?.textContent||"Поиск")}

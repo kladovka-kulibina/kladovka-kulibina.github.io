@@ -39,6 +39,7 @@
       <button class="nav-item manager-only" data-view="finance"><i data-symbol="finance"></i>Финансы</button>
       <button class="nav-item manager-only" data-view="reports"><i data-symbol="reports"></i>Отчёты</button>
       <button class="nav-item manager-only" data-view="employees"><i data-symbol="team"></i>Сотрудники</button>
+      <button class="nav-item owner-only" data-view="workbook"><i data-symbol="reports"></i>Таблица проката</button>
       <button class="nav-item owner-only" data-view="settings"><i data-symbol="settings"></i>Настройки</button>
     </nav>
     <div class="sidebar-foot"><div class="account"><span class="avatar" id="initials">ЛК</span><div><b id="accountName">Локальный кабинет</b><small id="accountRole">Владелец</small></div></div><button id="logoutBtn" class="icon-btn" title="Выйти" aria-label="Выйти"><i data-symbol="exit"></i></button></div>
@@ -49,6 +50,7 @@
     <div class="content">
       <div class="page-head"><div><div class="date-line"><i data-symbol="calendar"></i><span id="todayDate"></span></div><h1 id="pageTitle" tabindex="-1">Обзор проката</h1></div>
       <button class="btn primary" id="newRentalBtn"><i data-symbol="plus"></i>Новый договор</button></div>
+      <button id="relatedWorkbook" class="text-btn wb-related" hidden></button>
       <section id="dashboardView" class="view">
         <section class="fleet"><div class="fleet-copy"><div class="fleet-label"><span></span> Каталог инструментов</div><h2>Готовы к выдаче</h2><p><strong id="fleetReady">0</strong> <span id="fleetTotal"></span></p><button class="fleet-link" data-free-catalog>Открыть каталог <i data-symbol="arrow"></i></button></div></section>
         <div class="kpis">
@@ -62,7 +64,7 @@
         <section class="panel"><div class="panel-head"><h3>Последние договоры</h3><button class="text-btn" data-open-view="rentals">Все договоры <i data-symbol="arrow"></i></button></div><div id="recentRentals" class="table-scroll"></div></section>
         <section class="panel manager-only"><div class="panel-head"><h3>Выручка за неделю</h3><span id="chartPeriod" class="muted"></span></div><div id="revenueChart" class="mini-chart"></div></section>
       </section>
-      <section id="rentalsView" class="view hidden"></section><section id="toolsView" class="view hidden"></section><section id="clientsView" class="view hidden"></section><section id="financeView" class="view hidden"></section><section id="reportsView" class="view hidden"></section><section id="employeesView" class="view hidden"></section><section id="employerView" class="view hidden"></section><section id="settingsView" class="view hidden"></section>
+      <section id="rentalsView" class="view hidden"></section><section id="toolsView" class="view hidden"></section><section id="clientsView" class="view hidden"></section><section id="financeView" class="view hidden"></section><section id="reportsView" class="view hidden"></section><section id="employeesView" class="view hidden"></section><section id="workbookView" class="view hidden"></section><section id="employerView" class="view hidden"></section><section id="settingsView" class="view hidden"></section>
       <footer><span>Кладовка Кулибина</span><span class="sync"><i id="syncDot"></i><span id="syncText"></span></span></footer>
     </div>
   </main>
