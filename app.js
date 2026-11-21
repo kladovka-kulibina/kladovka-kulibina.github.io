@@ -1,7 +1,8 @@
+import { initSounds, playFeedback } from "./sound.js";
 import { partyFieldsMarkup, partyFromForm, fillParty, rentalParty, accessoryRows, contractMarkup, yakutskMoment } from "./contract.js";
 import { renderWorkbook } from "./workbook.js";
-import { renderEmployer } from "./employer.js";
-import { icon, mountIcons } from "./icons.js";
+import { renderEmployer } from "./employer.js?v=action-sounds";
+import { icon, mountIcons } from "./icons.js?v=action-sounds";
 import { normalizeBackup, cloudBackup } from "./backup.js";
 
 const CFG = window.KK_CONFIG || {};
@@ -68,7 +69,7 @@ function showAuth(message=""){
   $("#demoBtn").textContent=hosted?"Открыть демоверсию":"Открыть локальный кабинет";
   $("#auth").classList.remove("hidden");$("#app").classList.add("hidden");$("#loginForm").hidden=!supabase;$("#authStatus").textContent=message;
 }
-async function enter(user,mode){
+async function enter(user,mode,audible=false){
   state.mode=mode;state.user=user;state.filters={};
   if(cloud()){
     const {data,error}=await supabase.from("profiles").select("*").eq("id",user.id).single();
@@ -82,10 +83,11 @@ async function enter(user,mode){
   $("#initials").textContent=$("#accountName").textContent.split(/\s+/).slice(0,2).map(x=>x[0]).join("").toUpperCase();
   $("#auth").classList.add("hidden");$("#app").classList.remove("hidden");
   state.view=location.hash.slice(1)||(cloud()&&state.role==="owner"?"employer":"dashboard");applyRoleUI();setView(state.view);
+  if(audible)playFeedback("welcome");
 }
-async function enterLocal(){try{await enter({id:"demo"},"local")}catch(err){state.user=null;showAuth("Не удалось открыть локальную базу. "+err.message)}}
+async function enterLocal(audible=false){try{await enter({id:"demo"},"local",audible)}catch(err){state.user=null;showAuth("Не удалось открыть локальную базу. "+err.message)}}
 async function authInit(){
-  mountIcons();applyTheme();setMenu(false);
+  mountIcons();initSounds($("#soundBtn"),icon);applyTheme();setMenu(false);
   if(!configured&&hosted){showAuth("Общая база ещё не подключена. Демоверсия сохраняет изменения в этом браузере.");return}
   if(!configured){if(sessionStorage.getItem("kk-web-logged-out"))showAuth("Данные сохраняются в этом браузере.");else await enterLocal();return}
   const {createClient}=await import("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm");
@@ -106,10 +108,10 @@ $("#loginForm").onsubmit=async e=>{
   }
   try{const login=$("#loginEmail").value.trim().toLowerCase();
     const email=login.includes("@")?login:login+"@accounts.kladovka.invalid";
-    const {data,error}=await supabase.auth.signInWithPassword({email,password:$("#loginPassword").value});if(error)throw error;$("#loginPassword").value="";await enter(data.user,"cloud")}
+    const {data,error}=await supabase.auth.signInWithPassword({email,password:$("#loginPassword").value});if(error)throw error;$("#loginPassword").value="";await enter(data.user,"cloud",true)}
   catch(err){state.user=null;showAuth(err.message)}finally{b.disabled=false}
 };
-$("#demoBtn").onclick=enterLocal;
+$("#demoBtn").onclick=()=>enterLocal(true);
 $("#logoutBtn").onclick=async()=>{if(cloud()&&supabase){const {error}=await supabase.auth.signOut();if(error)return toast(error.message,true)}resetAccount()};
 $("#themeBtn").onclick=()=>{state.theme=state.theme==="dark"?"light":"dark";localStorage.setItem("kk-web-theme",state.theme);applyTheme()};
 $("#newRentalBtn").onclick=()=>openRentalForm();
@@ -444,7 +446,7 @@ function returnDialog(r) {
         if(error)throw error;if(!data)throw Error("Договор изменился. Обновите список перед возвратом.");
       }else{await upsert("rentals",{...r,...patch})}
     }catch(err){toast(err.message,true);return}
-    closeModal();
+    playFeedback("returned");closeModal();
     try{await reloadData()}catch{toast("Возврат сохранён. Обновите список договоров.",true)}
     await previewRental({...r,...patch});
   };
@@ -552,7 +554,7 @@ function openRentalForm(existing=null,initialTool=""){
       }
       const details={template_version:template.version,time:fields.agreement_time.value,party,positions,extras:additional};
       const row={id:rentalId,legacy_id:r.legacy_id,contract_number:number,contract_date:fields.contract_date.value,contract_details:details,client_id:client?.id||null,client_name_snapshot:party.full_name,client_phone_snapshot:party.phone,issue_date:fields.issue_date.value,return_date:fields.return_date.value,return_time:fields.return_time.value||null,days_count:days,total_amount:items.reduce((v,i)=>v+i.subtotal,0),deposit_amount:items.reduce((v,i)=>v+i.deposit,0),status:"active",notes:fields.notes.value,created_by:r.created_by||state.user.id};
-      const saved=await saveRental(row,items);closeModal();
+      const saved=await saveRental(row,items);playFeedback("saved");closeModal();
       try{await reloadData();toast("Договор "+number+" сохранён")}catch{toast("Договор сохранён. Обновите список.",true)}
       if(printing)await previewRental({...row,...saved,items},template);
     }catch(err){toast(err.message,true)}finally{delete f.dataset.saving;buttons.forEach(b=>b.disabled=false)}
@@ -585,7 +587,7 @@ async function openToolForm(existing){
   <label class="field full">Комплектация<textarea name="kit">${esc(t.kit||"")}</textarea></label><label class="field full">Описание<textarea name="description">${esc(t.description||"")}</textarea></label><label class="field full">Обслуживание<textarea name="service_note">${esc(t.service_note||t.service||"")}</textarea></label><label class="field full"><span>Примечание</span><textarea name="note">${esc(t.note||"")}</textarea></label>
   </div><div class="toolbar"><button class="btn primary" type="submit">Сохранить</button><button class="btn ghost" type="button" id="cancelModal">Отмена</button></div></form>`);
   $("#cancelModal").onclick=closeModal;
-  $("#toolForm").onsubmit=async e=>{e.preventDefault();try{const fd=new FormData(e.currentTarget);const row={id:t.id||undefined,legacy_id:t.legacy_id||undefined,name:String(fd.get("name")).trim(),category:String(fd.get("category")||"Без категории"),inventory_no:String(fd.get("inventory_no")||""),serial_no:String(fd.get("serial_no")||""),rental_price:fd.get("rental_price")===""?null:Number(fd.get("rental_price")),deposit:fd.get("deposit")===""?null:Number(fd.get("deposit")),estimated_value:fd.get("estimated_value")===""?null:Number(fd.get("estimated_value")),status:String(fd.get("status")),note:String(fd.get("note")||""),kit:String(fd.get("kit")||""),description:String(fd.get("description")||""),service_note:String(fd.get("service_note")||""),created_by:t.created_by||state.user?.id};if(!row.name)throw Error("Укажите название.");await saveTool(row);closeModal();await reloadData();toast("Инструмент сохранён")}catch(err){toast(err.message,true)}};
+  $("#toolForm").onsubmit=async e=>{e.preventDefault();try{const fd=new FormData(e.currentTarget);const row={id:t.id||undefined,legacy_id:t.legacy_id||undefined,name:String(fd.get("name")).trim(),category:String(fd.get("category")||"Без категории"),inventory_no:String(fd.get("inventory_no")||""),serial_no:String(fd.get("serial_no")||""),rental_price:fd.get("rental_price")===""?null:Number(fd.get("rental_price")),deposit:fd.get("deposit")===""?null:Number(fd.get("deposit")),estimated_value:fd.get("estimated_value")===""?null:Number(fd.get("estimated_value")),status:String(fd.get("status")),note:String(fd.get("note")||""),kit:String(fd.get("kit")||""),description:String(fd.get("description")||""),service_note:String(fd.get("service_note")||""),created_by:t.created_by||state.user?.id};if(!row.name)throw Error("Укажите название.");await saveTool(row);playFeedback("saved");closeModal();await reloadData();toast("Инструмент сохранён")}catch(err){toast(err.message,true)}};
   lockSubmit($("#toolForm"));
 }
 
@@ -606,7 +608,7 @@ function openClientForm(existing){
   <label style="display:flex;align-items:center;gap:8px"><input name="blacklist" type="checkbox" ${c.blacklist?"checked":""}> В чёрном списке</label>
   </div><div class="toolbar"><button class="btn primary" type="submit">Сохранить</button><button class="btn ghost" type="button" id="cancelModal">Отмена</button></div></form>`);
   $("#cancelModal").onclick=closeModal;
-  $("#clientForm").onsubmit=async e=>{e.preventDefault();try{const fd=new FormData(e.currentTarget);const row={id:c.id||undefined,legacy_id:c.legacy_id||undefined,full_name:String(fd.get("full_name")).trim(),phone:String(fd.get("phone")||""),phone2:String(fd.get("phone2")||""),birth_date:fd.get("birth_date")||null,passport_series:String(fd.get("passport_series")||""),passport_code:String(fd.get("passport_code")||""),passport_number:String(fd.get("passport_number")||""),passport_issued_by:String(fd.get("passport_issued_by")||""),passport_date:fd.get("passport_date")||null,address:String(fd.get("address")||""),notes:String(fd.get("notes")||""),blacklist:fd.get("blacklist")==="on",created_by:state.user?.id};if(!row.full_name)throw Error("Укажите ФИО.");await saveClient(row);closeModal();await reloadData();toast("Клиент сохранён")}catch(err){toast(err.message,true)}};
+  $("#clientForm").onsubmit=async e=>{e.preventDefault();try{const fd=new FormData(e.currentTarget);const row={id:c.id||undefined,legacy_id:c.legacy_id||undefined,full_name:String(fd.get("full_name")).trim(),phone:String(fd.get("phone")||""),phone2:String(fd.get("phone2")||""),birth_date:fd.get("birth_date")||null,passport_series:String(fd.get("passport_series")||""),passport_code:String(fd.get("passport_code")||""),passport_number:String(fd.get("passport_number")||""),passport_issued_by:String(fd.get("passport_issued_by")||""),passport_date:fd.get("passport_date")||null,address:String(fd.get("address")||""),notes:String(fd.get("notes")||""),blacklist:fd.get("blacklist")==="on",created_by:state.user?.id};if(!row.full_name)throw Error("Укажите ФИО.");await saveClient(row);playFeedback("saved");closeModal();await reloadData();toast("Клиент сохранён")}catch(err){toast(err.message,true)}};
   lockSubmit($("#clientForm"));
 }
 
@@ -617,14 +619,14 @@ function openExpenseForm(){
     <label class="field full"><span>Сумма</span><input name="amount" type="number" min=".01" step=".01" required></label>
     <label class="field full"><span>Комментарий</span><textarea name="note"></textarea></label>
   </div><div class="toolbar"><button class="btn primary" type="submit">Добавить расход</button><button class="btn ghost" type="button" id="cancelModal">Отмена</button></div></form>`);
-  $("#cancelModal").onclick=closeModal;$("#expenseForm").onsubmit=async e=>{e.preventDefault();const fd=new FormData(e.currentTarget);try{await saveExpense({expense_date:String(fd.get("expense_date")),category:String(fd.get("category")),amount:Number(fd.get("amount")),note:String(fd.get("note")||""),created_by:state.user?.id});closeModal();await reloadData();toast("Расход добавлен")}catch(err){toast(err.message,true)}}
+  $("#cancelModal").onclick=closeModal;$("#expenseForm").onsubmit=async e=>{e.preventDefault();const fd=new FormData(e.currentTarget);try{await saveExpense({expense_date:String(fd.get("expense_date")),category:String(fd.get("category")),amount:Number(fd.get("amount")),note:String(fd.get("note")||""),created_by:state.user?.id});closeModal();await reloadData();playFeedback("saved");toast("Расход добавлен")}catch(err){toast(err.message,true)}}
   lockSubmit($("#expenseForm"));
 }
 
 function openEmployeeForm(existing){
   const e=existing||{};
   openModal(existing?"Сотрудник":"Новый сотрудник",`<form id="employeeForm" class="stack"><div class="form-grid"><label class="field"><span>ФИО</span><input name="full_name" value="${esc(e.full_name||"")}" required></label><label class="field"><span>Телефон</span><input type="tel" name="phone" value="${esc(e.phone||"")}"></label><label class="field"><span>Должность</span><input name="position" value="${esc(e.position||"")}"></label><label class="field"><span>Активен</span><select name="active"><option value="true" ${e.active!==false?"selected":""}>Да</option><option value="false" ${e.active===false?"selected":""}>Нет</option></select></label></div><div class="toolbar"><button class="btn primary" type="submit">Сохранить</button><button class="btn ghost" type="button" id="cancelModal">Отмена</button></div></form>`);
-  $("#cancelModal").onclick=closeModal;$("#employeeForm").onsubmit=async ev=>{ev.preventDefault();const fd=new FormData(ev.currentTarget),row={id:e.id||undefined,legacy_id:e.legacy_id||undefined,full_name:String(fd.get("full_name")),phone:String(fd.get("phone")||""),position:String(fd.get("position")||""),active:fd.get("active")==="true"};try{await upsert("employees",row);closeModal();await reloadData();toast("Сотрудник сохранён")}catch(err){toast(err.message,true)}}
+  $("#cancelModal").onclick=closeModal;$("#employeeForm").onsubmit=async ev=>{ev.preventDefault();const fd=new FormData(ev.currentTarget),row={id:e.id||undefined,legacy_id:e.legacy_id||undefined,full_name:String(fd.get("full_name")),phone:String(fd.get("phone")||""),position:String(fd.get("position")||""),active:fd.get("active")==="true"};try{await upsert("employees",row);playFeedback("saved");closeModal();await reloadData();toast("Сотрудник сохранён")}catch(err){toast(err.message,true)}}
   lockSubmit($("#employeeForm"));
 }
 
@@ -660,7 +662,7 @@ async function importBackup(file){
       try{
         if(cloud()){const pack=cloudBackup(structuredClone(data),state,source.app==="Кладовка Кулибина Web"||Array.isArray(source.rentals));const {error}=await supabase.rpc("kk_restore_backup",{pack});if(error)throw error}
         else{const revision=state.revision;applyLocal({...data,revision});persistDemo()}
-        closeModal();await reloadData();toast("Данные восстановлены");
+        closeModal();await reloadData();playFeedback("saved");toast("Данные восстановлены");
       }catch(err){toast(err.message,true)}finally{b.disabled=false}
     };
   }catch(err){toast("Не удалось прочитать копию. "+err.message,true)}
@@ -675,7 +677,7 @@ async function seedCatalog(){
       const payload=rows.map(({id,legacy_id,name,category,inventory_no,serial_no,rental_price,deposit,estimated_value,status,note,description,video,service})=>({id,legacy_id,name,category,inventory_no,serial_no,rental_price,deposit,estimated_value,status,note,description,video_url:video,service_note:service}));
       const {error}=await supabase.from("tools").upsert(payload,{onConflict:"legacy_id",ignoreDuplicates:true});if(error)throw error
     }else{state.tools.push(...rows);persistDemo()}
-    await reloadData();toast("Каталог дополнен");
+    await reloadData();playFeedback("saved");toast("Каталог дополнен");
   }catch(err){toast(err.message,true)}
 }
 function renderEmployees(){
@@ -694,7 +696,7 @@ function renderEmployees(){
     const employee_id=el.dataset.shift,old=shifts.find(x=>x.employee_id===employee_id&&x.work_date===day);
     try{if(cloud()){const {error}=await supabase.from("timesheet").upsert({employee_id,work_date:day,status:el.value},{onConflict:"employee_id,work_date"});if(error)throw error}
     else await upsert("timesheet",{id:old?.id,employee_id,work_date:day,status:el.value});
-    await reloadData();toast("Табель сохранён")}catch(err){toast(err.message,true);renderEmployees()}
+    await reloadData();playFeedback("saved");toast("Табель сохранён")}catch(err){toast(err.message,true);renderEmployees()}
   };
 }
 

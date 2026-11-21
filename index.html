@@ -46,7 +46,7 @@
   </aside>
   <main class="main">
     <header class="topbar"><div class="crumb"><button id="menuBtn" class="icon-btn" aria-controls="sidebar" aria-expanded="false" aria-label="Меню"><i data-symbol="menu"></i></button><span class="mobile-brand">Кладовка Кулибина</span><span>Рабочее место</span><span class="sep">/</span><b id="pageKicker">Обзор</b></div>
-    <div class="top-actions"><button class="search-launch" id="globalSearch" aria-label="Поиск по базе"><i data-symbol="search"></i><span>Поиск по базе</span><kbd>Ctrl K</kbd></button><button class="icon-btn" id="themeBtn" aria-label="Сменить тему" title="Сменить тему"></button></div></header>
+    <div class="top-actions"><button class="search-launch" id="globalSearch" aria-label="Поиск по базе"><i data-symbol="search"></i><span>Поиск по базе</span><kbd>Ctrl K</kbd></button><button type="button" class="icon-btn" id="soundBtn" aria-label="Звуки действий" aria-pressed="true" hidden></button><button class="icon-btn" id="themeBtn" aria-label="Сменить тему" title="Сменить тему"></button></div></header>
     <div class="content">
       <div class="page-head"><div><div class="date-line"><i data-symbol="calendar"></i><span id="todayDate"></span></div><h1 id="pageTitle" tabindex="-1">Обзор проката</h1></div>
       <button class="btn primary" id="newRentalBtn"><i data-symbol="plus"></i>Новый договор</button></div>
@@ -71,6 +71,6 @@
 </div>
 <dialog id="modal" class="modal" aria-labelledby="dialogTitle"><div class="modal-card"><button id="modalClose" class="icon-btn modal-close" aria-label="Закрыть"><i data-symbol="close"></i></button><div id="modalContent"></div></div></dialog>
 <noscript>Для работы кабинета включите JavaScript.</noscript>
-<script type="module" src="app.js"></script>
+<script type="module" src="app.js?v=action-sounds"></script>
 </body></html>
 

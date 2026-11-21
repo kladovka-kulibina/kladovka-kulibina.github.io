@@ -1,4 +1,6 @@
 const shapes = {
+  soundOn:'<path d="M3 9h4l5-4v14l-5-4H3z"/><path d="M15 8a6 6 0 0 1 0 8m3-11a10 10 0 0 1 0 14"/>',
+  soundOff:'<path d="M3 9h4l5-4v14l-5-4H3z"/><path d="m16 9 5 6m0-6-5 6"/>',
   brand:'<path d="M3 9h18v11H3zM8 9V6h8v3M3 13h18M10 13v2h4v-2"/>',
   dashboard:'<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
   rentals:'<path d="M6 3h9l4 4v14H6zM14 3v5h5M9 12h7M9 16h5"/>',

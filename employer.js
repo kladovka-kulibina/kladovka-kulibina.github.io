@@ -1,3 +1,4 @@
+import { playFeedback } from "./sound.js";
 export function renderEmployer({root,state,online,db,esc,money,today,addDays,revenueFor,expenseFor,openModal,closeModal,toast,reloadData}) {
   if(state.role!=="owner"){root.replaceChildren();return}
   const now=today(),period=state.filters.ownerPeriod||"month";
@@ -40,7 +41,7 @@ export function renderEmployer({root,state,online,db,esc,money,today,addDays,rev
       form.onsubmit=async event=>{
         event.preventDefault();const submit=form.querySelector(".primary");if(submit.disabled)return;submit.disabled=true;
         try{const {error}=await db.rpc("kk_manage_access",{target_id:p.id,new_role:form.elements.role.value,enabled:form.elements.active.value==="yes",expected_update:p.updated_at});if(error)throw error;
-          closeModal();await load();toast("Права доступа сохранены")}
+          playFeedback("saved");closeModal();await load();toast("Права доступа сохранены")}
         catch(err){toast(err.message||"Не удалось изменить права",true)}finally{submit.disabled=false}
       };
     };
