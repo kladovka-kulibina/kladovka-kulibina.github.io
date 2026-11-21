@@ -1,3 +1,4 @@
+import { partyFieldsMarkup, partyFromForm, fillParty, rentalParty, accessoryRows, contractMarkup, yakutskMoment } from "./contract.js";
 import { renderWorkbook } from "./workbook.js";
 import { renderEmployer } from "./employer.js";
 import { icon, mountIcons } from "./icons.js";
@@ -93,7 +94,7 @@ async function authInit(){
   if(data.session)await enter(data.session.user,"cloud");else showAuth();
   supabase.auth.onAuthStateChange((event)=>{if(event==="SIGNED_OUT"&&cloud())resetAccount()});
 }
-function resetAccount(){$("#workbookView").replaceChildren();$("#employerView").replaceChildren();closeModal();setMenu(false);state.user=null;state.profile=null;state.role="employee";state.view="dashboard";state.filters={};collections.forEach(k=>{state[k]=[]});sessionStorage.setItem("kk-web-logged-out","1");history.replaceState(null,"",location.pathname+location.search);showAuth(configured?"":"Данные сохраняются в этом браузере.")}
+function resetAccount(){$("#modalContent").replaceChildren();$("#workbookView").replaceChildren();$("#employerView").replaceChildren();closeModal();setMenu(false);state.user=null;state.profile=null;state.role="employee";state.view="dashboard";state.filters={};collections.forEach(k=>{state[k]=[]});sessionStorage.setItem("kk-web-logged-out","1");history.replaceState(null,"",location.pathname+location.search);showAuth(configured?"":"Данные сохраняются в этом браузере.")}
 $("#loginForm").onsubmit=async e=>{
   e.preventDefault();const b=e.submitter;b.disabled=true;
   if(signingUp){
@@ -171,12 +172,6 @@ async function saveRental(row,items){
   }
   if(state.rentals.some(r=>r.id!==row.id&&r.contract_number===row.contract_number))throw Error("Такой номер договора уже используется.");
   return upsert("rentals",{...row,items:items.map(i=>({...i,id:i.id||uid()}))});
-}
-async function markReturned(rental){
-  const patch={status:"returned",actual_return_at:new Date().toISOString()};
-  if(cloud()){const {error}=await supabase.from("rentals").update(patch).eq("id",rental.id).eq("status","active");if(error)throw error}
-  else{Object.assign(rental,patch);persistDemo()}
-  await reloadData();
 }
 async function reloadData(){if(cloud())await cloudLoad();else await demoLoad();renderAll()}
 
@@ -401,23 +396,90 @@ function printSection(title,markup){
 function rentalSummary(r){
   return `<h3>Договор № ${esc(r.contract_number)}</h3><p>${esc(clientName(r.client_id,r))} · ${esc(r.client_phone_snapshot||"")}</p><p>Выдача ${fmtDate(r.issue_date)} · Возврат ${fmtDate(r.return_date)} ${esc(r.return_time||"")}</p><table class="data-table"><thead><tr><th>Инструмент</th><th>Суток</th><th>Сумма</th></tr></thead><tbody>${(r.items||[]).map(i=>`<tr><td>${esc(i.tool_name_snapshot)}</td><td>${esc(i.days_count)}</td><td>${money(i.subtotal)}</td></tr>`).join("")}</tbody></table><p><b>Итого ${money(r.total_amount)}</b> · Залог ${money(r.deposit_amount)}</p>${r.notes?`<p>${esc(r.notes)}</p>`:""}`;
 }
+async function getPrintTemplate(version) {
+  if (cloud()) {
+    let query=supabase.from("rental_print_templates").select("version,document");
+    query=version ? query.eq("version",version) : query.eq("active",true);
+    const {data,error}=await query.single();
+    if(error || !data) throw Error("Не удалось загрузить бланк договора. Проверьте подключение к общей базе.");
+    return data;
+  }
+  const path=hosted ? "data/contract-demo.json" : "data/contract-local.json";
+  const res=await fetch(path,{cache:"no-store"});
+  if(!res.ok)throw Error("Бланк договора недоступен. Обновите страницу и повторите.");
+  return res.json();
+}
+async function previewRental(r,template) {
+  const account=state.user;
+  try{
+    const source=template || await getPrintTemplate(r.contract_details?.template_version);
+    if(account!==state.user || !account)return;
+    const client=state.clients.find(c=>c.id===r.client_id);
+    const html=contractMarkup(source.document,r,client,state.tools);
+    openModal("Договор № "+r.contract_number,'<div class="contract-preview"><div class="toolbar"><button class="btn primary" id="sendContractPrint" disabled>Печать / PDF</button><button class="btn" id="exitContractPrint">Закрыть</button></div><iframe title="Предпросмотр договора" sandbox="allow-same-origin allow-modals"></iframe></div>');
+    const frame=$(".contract-preview iframe"),button=$("#sendContractPrint");
+    frame.onload=()=>{button.disabled=false};
+    frame.srcdoc=html;
+    button.onclick=()=>{frame.contentWindow.focus();frame.contentWindow.print()};
+    $("#exitContractPrint").onclick=closeModal;
+  }catch(err){toast(err.message,true)}
+}
+function returnDialog(r) {
+  const now=yakutskMoment(new Date());
+  openModal("Возврат по договору № "+r.contract_number,'<form id="returnForm" class="stack"><div class="form-grid"><label class="field">Дата возврата<input type="date" name="day" required></label><label class="field">Время в Якутске<input type="time" name="clock" required></label><label class="field">Скидка на аренду, ₽<input name="discount" type="number" min="0" step=".01" value="0" required></label></div><div class="toolbar"><button type="submit" class="btn primary">Принять возврат</button><button type="button" class="btn" id="cancelReturn">Отмена</button></div></form>');
+  const form=$("#returnForm"), f=form.elements;
+  f.day.value=now.day;f.day.min=r.issue_date;f.clock.value=now.time;f.discount.max=r.total_amount;
+  $("#cancelReturn").onclick=closeModal;
+  form.onsubmit=async event=>{
+    event.preventDefault();
+    const at=new Date(f.day.value+"T"+f.clock.value+":00+09:00");
+    if(!Number.isFinite(at.getTime()) || at>Date.now()+60000) return toast("Проверьте фактические дату и время возврата.",true);
+    const discount=Number(f.discount.value);
+    const patch={status:"returned",actual_return_at:at.toISOString(),return_discount:discount,total_amount:Math.round((Number(r.total_amount)-discount)*100)/100};
+    try{
+      if(cloud()){
+        let query=supabase.from("rentals").update(patch).eq("id",r.id).eq("status","active");
+        if(r.updated_at)query=query.eq("updated_at",r.updated_at);
+        const {data,error}=await query.select("id").maybeSingle();
+        if(error)throw error;if(!data)throw Error("Договор изменился. Обновите список перед возвратом.");
+      }else{await upsert("rentals",{...r,...patch})}
+    }catch(err){toast(err.message,true);return}
+    closeModal();
+    try{await reloadData()}catch{toast("Возврат сохранён. Обновите список договоров.",true)}
+    await previewRental({...r,...patch});
+  };
+  lockSubmit(form);
+}
+
 function openRentalForm(existing=null,initialTool=""){
   const r=existing||{},date=isoToday(),available=state.tools.filter(t=>toolUiStatus(t)[0]==="Свободен"||r.items?.some(i=>i.tool_id===t.id));
-  if(existing&&r.status!=="active"){openModal("Карточка договора",`<div class="stack"><div class="table-scroll">${rentalSummary(r)}</div><span class="pill">${rentalStatus(r)[0]}</span><button class="btn" id="printRental">Распечатать</button></div>`);$("#printRental").onclick=()=>printSection("Договор "+r.contract_number,rentalSummary(r));return}
+  if(existing&&r.status!=="active"){openModal("Карточка договора",`<div class="stack"><div class="table-scroll">${rentalSummary(r)}</div><span class="pill">${rentalStatus(r)[0]}</span><button class="btn" id="printRental">Распечатать</button></div>`);$("#printRental").onclick=()=>previewRental(r);return}
+  const rentalId=r.id||uid();let newClientId=uid();
   const options=state.clients.slice().sort((a,b)=>a.full_name.localeCompare(b.full_name,"ru")).map(c=>`<option value="${esc(c.id)}">${esc(c.full_name)}${c.phone?" · "+esc(c.phone):""}${c.blacklist?" · Чёрный список":""}</option>`).join("");
   openModal(r.id?"Договор № "+r.contract_number:"Новый договор",`<form id="rentalForm" class="stack">
     <div class="form-grid"><label class="field">Номер договора<input name="contract_number" value="${esc(r.contract_number||nextContractNumber())}" required></label><label class="field">Дата договора<input name="contract_date" type="date" value="${esc(r.contract_date||r.issue_date||date)}" required></label>
     <label class="field full">Клиент<select name="client_id" required><option value="">Выберите клиента</option>${options}<option value="__new">＋ Новый клиент</option></select></label>
-    <div id="newClientFields" class="form-grid full" hidden><label class="field">ФИО нового клиента<input name="new_name"></label><label class="field">Телефон<input name="new_phone" type="tel"></label></div>
+    <fieldset class="rental-line full"><legend>Реквизиты арендатора в договоре</legend><div class="form-grid">${partyFieldsMarkup()}</div></fieldset>
+    <label class="field">Время оформления в Якутске<input name="agreement_time" type="time" value="${esc(r.contract_details?.time ?? (r.id ? "" : yakutskMoment(new Date()).time))}"></label>
     <label class="field">Дата выдачи<input name="issue_date" type="date" value="${esc(r.issue_date||date)}" required></label><label class="field">Дата возврата<input name="return_date" type="date" value="${esc(r.return_date||addDays(date,1))}" required></label><label class="field">Время возврата<input name="return_time" type="time" value="${esc(r.return_time||"18:00")}"></label><label class="field">Суток<input name="days_count" type="number" min="1" step="1" required value="${esc(r.days_count||1)}"></label></div>
     <div id="rentalLines" class="stack"></div><button class="btn" type="button" id="addLine">＋ Ещё инструмент</button>
+    <fieldset class="rental-line"><legend>Дополнительные позиции</legend><div id="extraRows"></div><button type="button" class="text-btn" id="addExtra">＋ Дополнительная позиция</button></fieldset>
     <label class="field">Комментарий<textarea name="notes">${esc(r.notes||"")}</textarea></label>
     <div class="report-box"><b id="rentalTotal"></b><small id="rentalDeposit"></small></div>
-    <div class="toolbar"><button class="btn primary" type="submit">Сохранить договор</button><button class="btn" type="button" id="cancelModal">Отмена</button>${r.id?'<button class="btn" type="button" id="printRental">Печать</button>':""}</div></form>`);
+    <div class="toolbar"><button class="btn primary" type="submit">Сохранить договор</button><button class="btn" type="submit" id="saveAndPrint">Сохранить и открыть печать</button>${r.id?'<button class="btn" type="button" id="printSavedContract">Печать сохранённого договора</button>':""}<button class="btn" type="button" id="cancelModal">Отмена</button></div></form>`);
   const f=$("#rentalForm"),fields=f.elements,lines=$("#rentalLines");
-  fields.client_id.value=r.client_id||(!state.clients.length?"__new":"");
-  function toggleClient(){const creating=fields.client_id.value==="__new";$("#newClientFields").hidden=!creating;fields.new_name.required=creating}
-  toggleClient();fields.client_id.onchange=toggleClient;fields.return_date.min=fields.issue_date.value;
+  if(r.id && !state.clients.some(c=>c.id===r.client_id))fields.client_id.add(new Option(r.client_name_snapshot||"Клиент из договора","__history"));
+  fields.client_id.value=r.id ? (state.clients.some(c=>c.id===r.client_id)?r.client_id:"__history") : (!state.clients.length?"__new":"");
+  function toggleClient(){
+    const id=fields.client_id.value,person=state.clients.find(c=>c.id===id);
+    const same=r.id && (id===r.client_id||id==="__history");
+    fillParty(f,same?rentalParty(r,person):person);
+    fields.party_full_name.required=true;
+  }
+  toggleClient();fields.client_id.onchange=()=>{newClientId=uid();toggleClient()};fields.return_date.min=fields.issue_date.value;
+  if(r.id)$("#printSavedContract").onclick=()=>previewRental(r);
+  const extras=accessoryRows($("#extraRows"),r.contract_details?.extras);
+  $("#addExtra").onclick=()=>extras.add();
   function total(){
     const rows=$$(".rental-line",lines);
     $("#rentalTotal").textContent="Аренда · "+money(rows.reduce((v,el)=>v+Number($("[name=price]",el).value)*Number(fields.days_count.value),0));
@@ -426,7 +488,7 @@ function openRentalForm(existing=null,initialTool=""){
   }
   function addLine(item={},fromCatalog=""){
     const el=document.createElement("fieldset");el.className="rental-line";
-    el.innerHTML=`<legend>Инструмент</legend><label class="field">Найти в каталоге<input type="search" placeholder="Название или инвентарный номер"></label><label class="field">Позиция<select name="tool_id" required></select></label><div class="form-grid"><label class="field">Цена за сутки, ₽<input name="price" type="number" min="0" step=".01" required></label><label class="field">Залог, ₽<input name="deposit" type="number" min="0" step=".01" required></label></div><button type="button" class="text-btn" data-remove>Убрать позицию</button>`;
+    el.innerHTML=`<legend>Инструмент</legend><label class="field">Найти в каталоге<input type="search" placeholder="Название или инвентарный номер"></label><label class="field">Позиция<select name="tool_id" required></select></label><div class="form-grid"><label class="field">Наименование в договоре<input name="printed_name" required></label><label class="field">Серийный номер<input name="printed_serial"></label><label class="field">Инвентарный номер<input name="printed_inventory"></label><label class="field">Оценочная стоимость, ₽<input name="estimate" type="number" min="0" step=".01"></label><label class="field">Цена за сутки, ₽<input name="price" type="number" min="0" step=".01" required></label><label class="field">Залог, ₽<input name="deposit" type="number" min="0" step=".01" required></label></div><button type="button" class="text-btn" data-remove>Убрать позицию</button>`;
     lines.append(el);const sel=$("select",el),find=$("input[type=search]",el),price=$("[name=price]",el),deposit=$("[name=deposit]",el);
     const chosen=item.tool_id||fromCatalog||"";const originalMissing=item.tool_name_snapshot&&!state.tools.some(t=>t.id===chosen);
     function populate(keep){
@@ -437,12 +499,20 @@ function openRentalForm(existing=null,initialTool=""){
     }
     el.savedLine=item;populate(originalMissing?"__history":chosen);
     find.oninput=()=>{populate(sel.value)};
-    function tariff(){const t=state.tools.find(x=>x.id===sel.value);price.value=t?.rental_price??0;deposit.value=t?.deposit??0;total()}
-    sel.onchange=tariff;tariff();if(item.rental_price!=null)price.value=item.rental_price;if(item.deposit!=null)deposit.value=item.deposit;
+    function tariff(){const t=state.tools.find(x=>x.id===sel.value);el.elements.printed_name.value=t?.name||"";el.elements.printed_serial.value=t?.serial_no||"";
+      el.elements.printed_inventory.value=t?.inventory_no||"";el.elements.estimate.value=t?.estimated_value??"";price.value=t?.rental_price??0;deposit.value=t?.deposit??0;total()}
+    sel.onchange=tariff;tariff();
+    if(item.tool_name_snapshot){
+      el.elements.printed_name.value=item.tool_name_snapshot;el.elements.printed_inventory.value=item.inventory_snapshot||"";
+      el.elements.printed_serial.value=item.serial_snapshot||"";
+      const saved=r.contract_details?.positions?.find(x=>item.tool_id ? x.tool_id===item.tool_id : !x.tool_id && x.name===item.tool_name_snapshot && x.serial===item.serial_snapshot);
+      if(saved)el.elements.estimate.value=saved.estimate??"";
+    }
+    if(item.rental_price!=null)price.value=item.rental_price;if(item.deposit!=null)deposit.value=item.deposit;
     $("[data-remove]",el).onclick=()=>{el.remove();total()};total();
   }
   if(r.items?.length)r.items.forEach(i=>addLine(i));else addLine({},initialTool);
-  $("#addLine").onclick=()=>addLine();$("#cancelModal").onclick=closeModal;if(r.id)$("#printRental").onclick=()=>printSection("Договор "+r.contract_number,rentalSummary(r));
+  $("#addLine").onclick=()=>addLine();$("#cancelModal").onclick=closeModal;
   f.oninput=e=>{
     const start=fields.issue_date.value,end=fields.return_date.value;
     if(["issue_date","return_date"].includes(e.target.name)&&start&&end){
@@ -452,29 +522,40 @@ function openRentalForm(existing=null,initialTool=""){
     total();
   };
   f.onsubmit=async e=>{
-    e.preventDefault();const btn=f.querySelector("button[type=submit]");if(btn.disabled)return;btn.disabled=true;
+    e.preventDefault();if(f.dataset.saving)return;f.dataset.saving="yes";
+    const buttons=$$("button[type=submit]",f);buttons.forEach(b=>b.disabled=true);
+    const printing=e.submitter?.id==="saveAndPrint";
     try{
       const number=fields.contract_number.value.trim(),days=Number(fields.days_count.value);
       if(!number)throw Error("Укажите номер договора.");
       if(state.rentals.some(x=>x.id!==r.id&&x.contract_number===number))throw Error("Такой номер договора уже используется.");
-      const used=new Set();const items=$$(".rental-line",lines).map(el=>{
+      const positions=[],additional=extras.values();const used=new Set();const items=$$(".rental-line",lines).map(el=>{
         const id=$("select",el).value,price=Number($("[name=price]",el).value),deposit=Number($("[name=deposit]",el).value);
         const t=state.tools.find(x=>x.id===id),old=el.savedLine;
         if(id!=="__history"&&(!t||used.has(id)||(!r.items?.some(i=>i.tool_id===id)&&toolUiStatus(t)[0]!=="Свободен")))throw Error("Выберите разные свободные инструменты.");
-        used.add(id);return {id:old.id,tool_id:t?.id||null,tool_name_snapshot:t?.name||old.tool_name_snapshot,inventory_snapshot:t?.inventory_no||old.inventory_snapshot||"",serial_snapshot:t?.serial_no||old.serial_snapshot||"",rental_price:price,days_count:days,deposit,subtotal:Math.round(price*days*100)/100};
+        const name=el.elements.printed_name.value.trim(),serial=el.elements.printed_serial.value.trim();
+        if(!name)throw Error("Укажите наименование инструмента в договоре.");
+        positions.push({tool_id:t?.id||null,name,serial,estimate:el.elements.estimate.value===""?null:Number(el.elements.estimate.value)});
+        used.add(id);return {id:old.id,tool_id:t?.id||null,tool_name_snapshot:name,inventory_snapshot:el.elements.printed_inventory.value.trim(),serial_snapshot:serial,rental_price:price,days_count:days,deposit,subtotal:Math.round(price*days*100)/100};
       });
+      const party=partyFromForm(f);
+      if(!party.full_name)throw Error("Укажите ФИО арендатора.");
       let client=state.clients.find(x=>x.id===fields.client_id.value);
+      const historical=fields.client_id.value==="__history" && r.id;
+      if(!client && !historical && fields.client_id.value!=="__new")throw Error("Выберите клиента.");
+      if(client?.blacklist&&!confirm("Клиент в чёрном списке. Оформить договор?"))return;
+      const template=await getPrintTemplate(r.contract_details?.template_version);
       if(fields.client_id.value==="__new"){
-        const name=fields.new_name.value.trim();if(!name)throw Error("Укажите ФИО клиента.");
-        const phone=fields.new_phone.value.trim();
-        client=await saveClient({full_name:name,phone,created_by:state.user.id});if(!state.clients.some(x=>x.id===client.id))state.clients.push(client);
-        fields.client_id.add(new Option(name,client.id));fields.client_id.value=client.id;toggleClient();
+        client=await saveClient({id:newClientId,...party,birth_date:party.birth_date||null,passport_date:party.passport_date||null,created_by:state.user.id});
+        if(!state.clients.some(x=>x.id===client.id))state.clients.push(client);
+        fields.client_id.add(new Option(party.full_name,client.id));fields.client_id.value=client.id;
       }
-      if(!client)throw Error("Выберите клиента.");
-      if(client.blacklist&&!confirm("Клиент в чёрном списке. Оформить договор?"))return;
-      const row={id:r.id,legacy_id:r.legacy_id,contract_number:number,contract_date:fields.contract_date.value,client_id:client.id,client_name_snapshot:client.full_name,client_phone_snapshot:client.phone||"",issue_date:fields.issue_date.value,return_date:fields.return_date.value,return_time:fields.return_time.value||null,days_count:days,total_amount:items.reduce((v,i)=>v+i.subtotal,0),deposit_amount:items.reduce((v,i)=>v+i.deposit,0),status:"active",notes:fields.notes.value,created_by:r.created_by||state.user.id};
-      await saveRental(row,items);closeModal();await reloadData();toast("Договор "+number+" сохранён");
-    }catch(err){toast(err.message,true)}finally{btn.disabled=false}
+      const details={template_version:template.version,time:fields.agreement_time.value,party,positions,extras:additional};
+      const row={id:rentalId,legacy_id:r.legacy_id,contract_number:number,contract_date:fields.contract_date.value,contract_details:details,client_id:client?.id||null,client_name_snapshot:party.full_name,client_phone_snapshot:party.phone,issue_date:fields.issue_date.value,return_date:fields.return_date.value,return_time:fields.return_time.value||null,days_count:days,total_amount:items.reduce((v,i)=>v+i.subtotal,0),deposit_amount:items.reduce((v,i)=>v+i.deposit,0),status:"active",notes:fields.notes.value,created_by:r.created_by||state.user.id};
+      const saved=await saveRental(row,items);closeModal();
+      try{await reloadData();toast("Договор "+number+" сохранён")}catch{toast("Договор сохранён. Обновите список.",true)}
+      if(printing)await previewRental({...row,...saved,items},template);
+    }catch(err){toast(err.message,true)}finally{delete f.dataset.saving;buttons.forEach(b=>b.disabled=false)}
   };
 }
 
@@ -517,6 +598,7 @@ function openClientForm(existing){
   <label class="field"><span>Дата рождения</span><input name="birth_date" type="date" value="${esc(c.birth_date||"")}"></label>
   <label class="field"><span>Паспорт серия</span><input name="passport_series" value="${esc(c.passport_series||"")}"></label>
   <label class="field"><span>Паспорт номер</span><input name="passport_number" value="${esc(c.passport_number||"")}"></label>
+  <label class="field"><span>Код подразделения</span><input name="passport_code" value="${esc(c.passport_code||"")}"></label>
   <label class="field"><span>Кем выдан</span><input class="full" name="passport_issued_by" value="${esc(c.passport_issued_by||"")}"></label>
   <label class="field"><span>Дата выдачи</span><input name="passport_date" type="date" value="${esc(c.passport_date||"")}"></label>
   <label class="field full"><span>Адрес</span><textarea name="address">${esc(c.address||"")}</textarea></label>
@@ -524,7 +606,7 @@ function openClientForm(existing){
   <label style="display:flex;align-items:center;gap:8px"><input name="blacklist" type="checkbox" ${c.blacklist?"checked":""}> В чёрном списке</label>
   </div><div class="toolbar"><button class="btn primary" type="submit">Сохранить</button><button class="btn ghost" type="button" id="cancelModal">Отмена</button></div></form>`);
   $("#cancelModal").onclick=closeModal;
-  $("#clientForm").onsubmit=async e=>{e.preventDefault();try{const fd=new FormData(e.currentTarget);const row={id:c.id||undefined,legacy_id:c.legacy_id||undefined,full_name:String(fd.get("full_name")).trim(),phone:String(fd.get("phone")||""),phone2:String(fd.get("phone2")||""),birth_date:fd.get("birth_date")||null,passport_series:String(fd.get("passport_series")||""),passport_number:String(fd.get("passport_number")||""),passport_issued_by:String(fd.get("passport_issued_by")||""),passport_date:fd.get("passport_date")||null,address:String(fd.get("address")||""),notes:String(fd.get("notes")||""),blacklist:fd.get("blacklist")==="on",created_by:state.user?.id};if(!row.full_name)throw Error("Укажите ФИО.");await saveClient(row);closeModal();await reloadData();toast("Клиент сохранён")}catch(err){toast(err.message,true)}};
+  $("#clientForm").onsubmit=async e=>{e.preventDefault();try{const fd=new FormData(e.currentTarget);const row={id:c.id||undefined,legacy_id:c.legacy_id||undefined,full_name:String(fd.get("full_name")).trim(),phone:String(fd.get("phone")||""),phone2:String(fd.get("phone2")||""),birth_date:fd.get("birth_date")||null,passport_series:String(fd.get("passport_series")||""),passport_code:String(fd.get("passport_code")||""),passport_number:String(fd.get("passport_number")||""),passport_issued_by:String(fd.get("passport_issued_by")||""),passport_date:fd.get("passport_date")||null,address:String(fd.get("address")||""),notes:String(fd.get("notes")||""),blacklist:fd.get("blacklist")==="on",created_by:state.user?.id};if(!row.full_name)throw Error("Укажите ФИО.");await saveClient(row);closeModal();await reloadData();toast("Клиент сохранён")}catch(err){toast(err.message,true)}};
   lockSubmit($("#clientForm"));
 }
 
@@ -552,7 +634,7 @@ document.addEventListener("click",async e=>{
   if(e.target.closest("[data-reset-tools]")){Object.assign(state.filters,{toolFilter:"",toolCat:"",toolStatus:""});state.toolLimit=30;return renderView("tools")}
 
   const er=e.target.closest("[data-edit-rental]");if(er){const r=state.rentals.find(x=>x.id===er.dataset.editRental);if(r)openRentalForm(r)}
-  const rr=e.target.closest("[data-return-rental]");if(rr){const r=state.rentals.find(x=>x.id===rr.dataset.returnRental);if(r&&confirm(`Принять возврат по договору ${r.contract_number}?`))try{await markReturned(r);toast("Возврат принят")}catch(err){toast(err.message,true)}}
+  const rr=e.target.closest("[data-return-rental]");if(rr){const r=state.rentals.find(x=>x.id===rr.dataset.returnRental);if(r)returnDialog(r)}
   const et=e.target.closest("[data-edit-tool]");if(et){const t=state.tools.find(x=>x.id===et.dataset.editTool);if(t)openToolForm(t)}
   const ec=e.target.closest("[data-edit-client]");if(ec){const c=state.clients.find(x=>x.id===ec.dataset.editClient);if(c)openClientForm(c)}
   const ee=e.target.closest("[data-edit-employee]");if(ee){const x=state.employees.find(x=>x.id===ee.dataset.editEmployee);if(x)openEmployeeForm(x)}

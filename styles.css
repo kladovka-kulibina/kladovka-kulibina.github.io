@@ -47,3 +47,5 @@ footer{display:flex;justify-content:space-between;align-items:center;gap:10px;fo
 .wb-selected td{background:color-mix(in srgb,#f6bb57 20%,transparent)}
 .wb-related{margin:0 0 1rem}
 @media(max-width:650px){.workbook-panel .panel-head{align-items:flex-start;flex-direction:column}.wb-controls{gap:.5rem}.wb-actions{margin-top:.4rem}.wb-table th,.wb-table td{max-width:15rem}.wb-scroll{max-height:60vh}}
+
+.contract-preview{display:grid;gap:10px}.contract-preview iframe{width:100%;height:64vh;border:1px solid var(--line);border-radius:5px;background:white}.modal:has(.contract-preview){width:min(960px,96vw);max-width:96vw}.contract-extra{border-bottom:1px solid var(--line);padding:9px 0}.contract-extra button{justify-self:start}
