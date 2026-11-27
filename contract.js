@@ -28,22 +28,24 @@ export function yakutskMoment(value) {
   const parts = Object.fromEntries(new Intl.DateTimeFormat("en-GB",{timeZone:"Asia/Yakutsk",year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",hourCycle:"h23"}).formatToParts(date).map(p=>[p.type,p.value]));
   return {day:parts.year+"-"+parts.month+"-"+parts.day,time:parts.hour+":"+parts.minute};
 }
-export function accessoryRows(container,initial) {
+export function accessoryRows(container,initial,onRemove) {
   function add(item={}) {
     const row=document.createElement("div");
     row.className="contract-extra form-grid";
-    row.innerHTML='<label class="field">Наименование<input name="extra_name"></label><label class="field">Оценочная стоимость, ₽<input name="extra_value" type="number" min="0" step=".01"></label><button class="text-btn" type="button">Убрать</button>';
+    row.innerHTML='<label class="field">Наименование<input name="extra_name"></label><label class="field">Оценочная стоимость, ₽<input name="extra_value" type="number" min="0" step=".01"></label><label class="field">Аренда за сутки, ₽<input name="extra_rate" type="number" min="0" step=".01"></label><button class="text-btn" type="button">Убрать</button>';
     row.querySelector("[name=extra_name]").value=item.name || "";
     row.querySelector("[name=extra_value]").value=item.value ?? "";
-    row.querySelector("button").onclick=()=>row.remove();
+    row.querySelector("[name=extra_rate]").value=item.rate ?? "";
+    row.querySelector("button").onclick=()=>{row.remove();onRemove?.()};
     container.append(row);
   }
   (initial || []).forEach(add);
   return {add,values() {
     return Array.from(container.children).map(row=>{
       const name=row.querySelector("[name=extra_name]").value.trim(), value=row.querySelector("[name=extra_value]").value;
-      if(!name && value!=="") throw Error("Введите наименование дополнительной позиции.");
-      return {name,value:value==="" ? null : Number(value)};
+      const rate=row.querySelector("[name=extra_rate]").value;
+      if(!name && (value!=="" || rate!=="")) throw Error("Введите наименование дополнительной позиции.");
+      return {name,value:value==="" ? null : Number(value),rate:Number(rate)};
     }).filter(x=>x.name);
   }};
 }
@@ -59,7 +61,7 @@ function substitute(text,values) {
     if(!value && value!==0)return label;
     const before=/[\p{L}\p{N}№.:)]/u.test(full[index-1]||"")?" ":"";
     const after=/[\p{L}\p{N}№]/u.test(full[index+match.length]||"")?" ":"";
-    return before+label+after;
+    return before+"<strong>"+label+"</strong>"+after;
   });
 }
 function para(text,cls="") {return '<p class="'+cls+'">'+text+'</p>'}
@@ -87,10 +89,12 @@ export function contractMarkup(template,r,client,tools) {
   for(let i=0;i<Math.max(3,extras.length);i++){
     const item=extras[i] || {};
     const pattern=source[20].replace(/^2\./,(i+1)+".");
-    lines.push(para(substitute(pattern,[item.name,numberText(item.value)])));
+    lines.push(para(substitute(pattern,[item.name,numberText(item.value)])+(item.rate ? " · Аренда "+numberText(item.rate)+" ₽/сут. × "+numberText(r.days_count)+" = "+numberText(item.rate*r.days_count)+" ₽" : ""),item.name?"filled":""));
   }
+  if(r.total_amount!=null) lines.push(para("Итого за аренду: "+numberText(r.total_amount)+" ₽"+(r.return_discount?" (скидка "+numberText(r.return_discount)+" ₽)":"")+". Залог: "+numberText(r.deposit_amount||0)+" ₽.","filled"));
+  if(d.additional_terms)lines.push(para(escapeHtml(d.additional_terms).replaceAll("\n","<br>"),"filled"));
   lines.push(para(substitute(source[22],[calendar(r.issue_date)])+" "+substitute(source[23],[termDate+(r.return_time?" "+r.return_time.slice(0,5):"")])));
-  for(let i=24;i<=57;i++) lines.push(p(i,[],[28,36,40,49,52,57].includes(i)?"heading":""));
+  for(let i=24;i<=57;i++) lines.push(p(i,[],[28,36,40,49,52,57].includes(i)?"heading":"rule"));
   const left=[],right=[];
   for(let i=58;i<=64;i++){
     const [a,b=""]=source[i].split("\t");
@@ -111,6 +115,6 @@ export function contractMarkup(template,r,client,tools) {
   const footerLeft=cssString(footer[0]||"______________Арендодатель"), footerRight=cssString(footer.slice(1).join(" ")||"V ___________Арендатор");
   return '<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="referrer" content="no-referrer"><meta http-equiv="Content-Security-Policy" content="default-src \'none\'; style-src \'unsafe-inline\'"><title>Договор '+escapeHtml(r.contract_number)+'</title><style>'+
     '@page{size:A4 portrait;margin:12.7mm 12.7mm 17mm;@bottom-left{content:'+footerLeft+';font:9pt "Times New Roman",serif}@bottom-right{content:'+footerRight+';font:9pt "Times New Roman",serif}}'+
-    '*{box-sizing:border-box}body{font:10pt/1.12 "Times New Roman",Times,serif;color:#000;margin:0;overflow-wrap:anywhere}p{margin:0 0 1.4pt;orphans:2;widows:2}.title,.heading{text-align:center;font-weight:bold}.title{font-size:11pt;margin-bottom:4pt}.heading{margin:4pt 0 2pt;break-after:avoid}.dateline,.sig,.parties{display:flex;justify-content:space-between;gap:4mm}.dateline{margin:2pt 0 6pt}.sig{margin:6pt 0 4pt;break-inside:avoid}.parties>div{width:50%}.parties p{min-height:1.12em}.parties p:first-child{font-weight:bold}.keep{break-inside:avoid}.keep-next{break-after:avoid}.return{margin-top:5pt}@media screen{html{background:#e5e7e5;padding:8px}body{background:white;max-width:210mm;margin:auto;padding:12.7mm;box-shadow:0 1px 5px #bbb}}'+
+    '*{box-sizing:border-box}body{font:10pt/1.12 "Times New Roman",Times,serif;color:#000;margin:0;overflow-wrap:anywhere}p{margin:0 0 1.4pt;orphans:2;widows:2}.rule,.filled{font-weight:bold}.title,.heading{text-align:center;font-weight:bold}.title{font-size:11pt;margin-bottom:4pt}.heading{margin:4pt 0 2pt;break-after:avoid}.dateline,.sig,.parties{display:flex;justify-content:space-between;gap:4mm}.dateline{margin:2pt 0 6pt}.sig{margin:6pt 0 4pt;break-inside:avoid}.parties>div{width:50%}.parties p{min-height:1.12em}.parties p:first-child{font-weight:bold}.keep{break-inside:avoid}.keep-next{break-after:avoid}.return{margin-top:5pt}@media screen{html{background:#e5e7e5;padding:8px}body{background:white;max-width:210mm;margin:auto;padding:12.7mm;box-shadow:0 1px 5px #bbb}}'+
     '</style></head><body>'+lines.join("")+'</body></html>';
 }

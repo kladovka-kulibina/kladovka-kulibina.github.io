@@ -10,9 +10,9 @@ export function renderEmployer({root,state,online,db,esc,money,today,addDays,rev
   const statusFor=e=>entries.find(x=>x.employee_id===e.id)?.status||"Без отметки";
   const onDuty=team.filter(e=>statusFor(e)==="На смене");
   const block=(name,value,detail)=>`<article class="kpi"><span>${name}</span><b>${value}</b><small>${detail}</small></article>`;
-  root.innerHTML=`<section class="panel owner-summary"><div class="panel-head"><h3>Результаты проката</h3><div class="owner-period" aria-label="Период отчёта">${[["today","Сегодня"],["week","7 дней"],["month","С начала месяца"]].map(([id,title])=>`<button type="button" data-period="${id}" aria-pressed="${id===period}">${title}</button>`).join("")}</div></div>
+  root.innerHTML=`<section class="panel owner-summary"><div class="panel-head"><div><h3>Результаты проката</h3><button class="text-btn" data-open-view="finance">Открыть кассу за месяц</button></div><div class="owner-period" aria-label="Период отчёта">${[["today","Сегодня"],["week","7 дней"],["month","С начала месяца"]].map(([id,title])=>`<button type="button" data-period="${id}" aria-pressed="${id===period}">${title}</button>`).join("")}</div></div>
     <div class="finance-grid">${block("Выручка",money(revenue),"Стоимость договоров")}${block("Расходы",money(expense),"По журналу расходов")}${block("Результат",money(revenue-expense),"Выручка за вычетом расходов")}</div></section>
-    <div class="grid-2"><section class="panel"><div class="panel-head"><h3>Смена сегодня</h3><button class="text-btn" data-open-view="employees">Открыть табель</button></div>
+    <div class="grid-2"><section class="panel"><div class="panel-head"><h3>Смена сегодня</h3><button class="text-btn" data-open-view="shifts">Открыть табель</button></div>
       <p><b>${onDuty.length}</b> на смене из ${team.length}</p>${team.length?`<ul class="owner-roster">${team.slice().sort((a,b)=>a.full_name.localeCompare(b.full_name,"ru")).map(e=>`<li><span>${esc(e.full_name)}</span><span class="pill ${statusFor(e)==="На смене"?"green":""}">${esc(statusFor(e))}</span></li>`).join("")}</ul>`:'<p class="muted">Добавьте сотрудников в табеле, чтобы видеть состав смены.</p>'}</section>
     <section class="panel"><div class="panel-head"><h3>Контроль возвратов</h3></div>${[["active","Активные договоры",active.length],["today","Вернуть сегодня",active.filter(r=>r.return_date===now).length],["overdue","Просроченные",late.length]].map(([f,label,n])=>`<button class="owner-link" data-rental-filter="${f}"><span>${label}</span><b>${n}</b></button>`).join("")}</section></div>
     <section class="panel"><div class="panel-head"><h3>Доступ к общей базе</h3>${online?'<button id="refreshAccounts" class="btn">Обновить</button>':''}</div><div id="ownerAccounts" aria-live="polite"></div></section>`;
@@ -57,4 +57,3 @@ export function renderEmployer({root,state,online,db,esc,money,today,addDays,rev
   root.querySelector("#refreshAccounts").onclick=async e=>{const button=e.currentTarget;button.disabled=true;try{await reloadData()}catch(err){toast(err.message,true);button.disabled=false}};
   load();
 }
-

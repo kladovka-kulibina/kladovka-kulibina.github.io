@@ -5,7 +5,7 @@
   <meta name="theme-color" content="#173c34">
   <title>Кладовка Кулибина — прокат инструментов</title>
   <meta name="description" content="Рабочее место пункта проката инструментов">
-  <link rel="icon" href="favicon.svg"><link rel="stylesheet" href="styles.css?v=barn-rack">
+  <link rel="icon" href="favicon.svg"><link rel="stylesheet" href="styles.css?v=owner-workspace">
   <script src="config.js"></script>
 </head>
 <body>
@@ -34,11 +34,14 @@
       <button class="nav-item" data-view="rentals"><i data-symbol="rentals"></i>Договоры аренды</button>
       <button class="nav-item" data-view="tools"><i data-symbol="tools"></i>Каталог</button>
       <button class="nav-item" data-view="clients"><i data-symbol="clients"></i>Клиенты</button>
+      <button class="nav-item" data-view="notes"><i data-symbol="reports"></i>Блокнот</button>
+      <button class="nav-item" data-view="template"><i data-symbol="rentals"></i>Бланк договора</button>
       <div class="nav-label manager-only">Управление</div>
       <button class="nav-item owner-only" data-view="employer"><i data-symbol="team"></i>Кабинет владельца</button>
-      <button class="nav-item manager-only" data-view="finance"><i data-symbol="finance"></i>Финансы</button>
+      <button class="nav-item manager-only" data-view="finance"><i data-symbol="finance"></i>Касса</button>
       <button class="nav-item manager-only" data-view="reports"><i data-symbol="reports"></i>Отчёты</button>
       <button class="nav-item manager-only" data-view="employees"><i data-symbol="team"></i>Сотрудники</button>
+      <button class="nav-item manager-only" data-view="shifts"><i data-symbol="calendar"></i>Табель</button>
       <button class="nav-item owner-only" data-view="workbook"><i data-symbol="reports"></i>Таблица проката</button>
       <button class="nav-item owner-only" data-view="settings"><i data-symbol="settings"></i>Настройки</button>
     </nav>
@@ -64,13 +67,12 @@
         <section class="panel"><div class="panel-head"><h3>Последние договоры</h3><button class="text-btn" data-open-view="rentals">Все договоры <i data-symbol="arrow"></i></button></div><div id="recentRentals" class="table-scroll"></div></section>
         <section class="panel manager-only"><div class="panel-head"><h3>Выручка за неделю</h3><span id="chartPeriod" class="muted"></span></div><div id="revenueChart" class="mini-chart"></div></section>
       </section>
-      <section id="rentalsView" class="view hidden"></section><section id="toolsView" class="view hidden"></section><section id="clientsView" class="view hidden"></section><section id="financeView" class="view hidden"></section><section id="reportsView" class="view hidden"></section><section id="employeesView" class="view hidden"></section><section id="workbookView" class="view hidden"></section><section id="employerView" class="view hidden"></section><section id="settingsView" class="view hidden"></section>
+      <section id="notesView" class="view hidden"></section><section id="templateView" class="view hidden"></section><section id="shiftsView" class="view hidden"></section><section id="rentalsView" class="view hidden"></section><section id="toolsView" class="view hidden"></section><section id="clientsView" class="view hidden"></section><section id="financeView" class="view hidden"></section><section id="reportsView" class="view hidden"></section><section id="employeesView" class="view hidden"></section><section id="workbookView" class="view hidden"></section><section id="employerView" class="view hidden"></section><section id="settingsView" class="view hidden"></section>
       <footer><span>Кладовка Кулибина</span><span class="sync"><i id="syncDot"></i><span id="syncText"></span></span></footer>
     </div>
   </main>
 </div>
 <dialog id="modal" class="modal" aria-labelledby="dialogTitle"><div class="modal-card"><button id="modalClose" class="icon-btn modal-close" aria-label="Закрыть"><i data-symbol="close"></i></button><div id="modalContent"></div></div></dialog>
 <noscript>Для работы кабинета включите JavaScript.</noscript>
-<script type="module" src="app.js?v=action-sounds"></script>
+<script type="module" src="app.js?v=owner-workspace"></script>
 </body></html>
-

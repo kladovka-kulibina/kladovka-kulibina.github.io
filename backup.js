@@ -41,6 +41,12 @@ export function normalizeBackup(source){
       }
     }
   }
+  if(web){
+    for(const key of ["staff_notes","cash_entries","templates"])if(key in raw)out[key]=array(raw[key],key);
+    for(const entry of out.cash_entries||[])if(!entry.id||!["receipt","refund"].includes(entry.kind)||!(Number(entry.amount)>0)||!/^\d{4}-\d{2}-\d{2}$/.test(entry.entry_date))throw Error("Некорректная запись кассы.");
+    for(const note of out.staff_notes||[])if(!["rules","duties"].includes(note.id)||typeof note.body!=="string")throw Error("Некорректная запись блокнота.");
+    for(const t of out.templates||[])if(!t.version||t.document?.paragraphs?.length!==75||typeof t.document.footer!=="string")throw Error("Некорректная версия бланка.");
+  }
   for(const record of out.rentals){
     if(!record.contract_number||!record.issue_date||!record.return_date||!["active","returned","cancelled"].includes(record.status))
       throw Error("У договора отсутствует номер, дата или статус.");
@@ -58,8 +64,8 @@ export function cloudBackup(data,current,web){
   }}
   const ref=(table,value)=>{if(value==null)return null;const result=maps[table].get(String(value));if(!result)throw Error("В копии отсутствует связанная запись: "+table);return result};
   for(const r of data.rentals){r.client_id=ref("clients",r.client_id);for(const i of r.items){i.tool_id=ref("tools",i.tool_id);delete i.id}}
+  for(const e of data.cash_entries||[])e.rental_id=ref("rentals",e.rental_id);
   for(const e of data.expenses)e.rental_id=ref("rentals",e.rental_id);
   for(const t of data.timesheet)t.employee_id=ref("employees",t.employee_id);
   return data;
 }
-
